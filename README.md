@@ -143,7 +143,7 @@ python TwitterDrasta.py --debug --config my-config.json
 
 ## Contributing
 
-All kinds of contributions towards the improvement and enhancement of this project are welcome. Any valuable pull request for fixing an issue or enhancing the project are welcome. You can even help by [reporting bugs](https://github.com/darajnish/twitterdrasta/issues/new/choose) and creatings issues for suggestions and ideas related to improvement and enhancement.
+All kinds of contributions towards the improvement and enhancement of this project are welcome. Any valuable pull request for fixing an issue or enhancing the project are welcome. You can even help by [reporting bugs](https://github.com/darajnish/twitterdrasta/issues/new/choose) and creating issues for suggestions and ideas related to new improvements and enhancements.
 
 ## License
 
