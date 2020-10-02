@@ -1,0 +1,13 @@
+{
+    "twitter_username" : "PASTE-THE-TWITTER-USERNAME-HERE",
+    "twitter_apikey" : "PASTE-THE-TWITTER-API-KEY-HERE",
+    "twitter_api_secret" : "PASTE-THE-TWITTER-API-SECRET-HERE",
+    "telegram_channel" : "PASTE-THE-TELEGRAM-CHANNEL-USERNAME-HERE",
+    "telegram_bot_apikey" : "PASTE-THE-TELEGRAM-BOT-API-KEY-HERE",
+    "seek_rate" : 2,
+    "max_rollback" : 200,
+    "ratelimit_wait" : 16,
+    "welcome_text" : "WRITE-A-WELCOME-MESSAGE-FOR-ANYONE-WHO-STARTS-THE-TELEGRAM-BOT",
+    "retweet_emoji" : "0x1F501",
+    "reply_emoji" : "0x21AA"
+}
