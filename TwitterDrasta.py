@@ -370,7 +370,7 @@ class TweetDrasta:
             mentions = status.retweeted_status.entities['user_mentions']
             mn = " {0} {1}".format(u'\u2192',' '.join(["@{0}".format(u['screen_name']) for u in status
                                                        .retweeted_status.entities['user_mentions']])) if len(mentions)!=0 else ""
-            str += "{0}  <b>{1}{2}</b>\n{3}\n".format(self.RETWEET_EMOJI,status.retweeted_status.user.screen_name, mn,
+            str += "{0}  <b>@{1}{2}</b>\n{3}\n".format(self.RETWEET_EMOJI,status.retweeted_status.user.screen_name, mn,
                                                         text[self.__rangem(mentions)[1]:].strip())
         elif (status.in_reply_to_screen_name and len(mentions)!=0):
             mn = ' '.join(["@{0}".format(u['screen_name']) for u in mentions])
