@@ -387,7 +387,7 @@ class TweetDrasta:
         i = 0
         for statuses in self.__rtlimt(tweepy.Cursor(self.api.user_timeline, id=self.username).iterator):
             for status in statuses:
-                if (status.id == since_id or i > self.max_rollback) :
+                if (status.id <= since_id or i >= self.max_rollback) :
                     return sts
                 sts.append(status.id)
                 i += 1
@@ -434,7 +434,7 @@ class TweetDrasta:
                     sleep(3)
             else:
                 # Else roll back to find the last status and update all since then
-                self.logger.debug("last_statusid in in recent_status! Rolling back to seek last_statusid!")
+                self.logger.debug("last_statusid not in recent_status! Rolling back to seek last_statusid!")
                 for status_id in reversed(self.__get_statuses_since(self.last_statusid)):
                     status = self.__get_status_by_id(status_id)
                     if status :
