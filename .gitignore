@@ -132,3 +132,4 @@ dmypy.json
 config.json
 TwitterDrasta.kdev4
 .kdev4/
+.vscode

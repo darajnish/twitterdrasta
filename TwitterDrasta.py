@@ -30,6 +30,7 @@ import tweepy
 import logging
 import json
 import signal
+import threading
 import psycopg2 as pg
 from time import sleep
 from argparse import ArgumentParser
@@ -58,8 +59,8 @@ class DBStore:
         
         # Check if 'DATABASE_URL'  environment variable exists and use it confugure for database access
         from os import environ
-        if ('DATABASE_URL' in environ and len(environ['DATABASE_URL'])!=0 and (
-            environ['DATABASE_URL'].startswith('postgresql://') or environ['DATABASE_URL'].startswith('postgres://'))):
+        if 'DATABASE_URL' in environ and len(environ['DATABASE_URL'])>0 and (
+            environ['DATABASE_URL'].startswith('postgresql://') or environ['DATABASE_URL'].startswith('postgres://')):
             self.logger.debug("Detected DATABASE_URL: {0}".format(environ['DATABASE_URL']))
             try:
                 url = environ['DATABASE_URL']
@@ -245,12 +246,12 @@ class TelegramBot:
         Starts the bot
         '''
         
-        if (not self.updater.running):
+        if not self.updater.running:
             self.updater.start_polling()
             self.logger.debug("Updater started polling! State:{0}".format('RUNNING' if self.updater.running else 'DOWN'))
             
             # Get channel id if it doesn't exit already, try for 10 times
-            if (not self.channel_id):
+            if not self.channel_id:
                 for i in range(1,11):
                     try:
                         self.channel_id = self.bot.get_chat("@{0}".format(self.channel)).id
@@ -269,7 +270,7 @@ class TelegramBot:
         Stops the bot (updater thread only)
         '''
         
-        if (self.updater.running):
+        if self.updater.running:
             self.updater.stop()
             self.logger.debug("Updater stopped! State:{0}".format('RUNNING' if self.updater.running else 'DOWN'))
             self.logger.info("Bot stopped!")
@@ -278,7 +279,7 @@ class TelegramBot:
         '''
         Send a message in the channel
         '''
-        if(type(msg) != str):
+        if type(msg) != str:
             return
         try:
             self.bot.send_message(chat_id=self.channel_id, parse_mode='html', text=msg)
@@ -405,7 +406,7 @@ class TweetDrasta:
         return None
     
     def __check_status(self, status):
-        if(status == None):
+        if status == None :
             return
         if(status.truncated or (hasattr(status, 'retweeted_status') and status.retweeted_status)):
             status = self.__get_status_by_id(status.id)
@@ -418,13 +419,13 @@ class TweetDrasta:
             recent_status = list(self.__rtlimt(tweepy.Cursor(self.api.user_timeline, id=self.username).items(20)))
             ids = [st.id for st in recent_status]
             self.logger.debug("Fetched {0} recent statuses! last_statusid: '{1}'".format(len(recent_status), self.last_statusid))
-            if (self.last_statusid == None):
+            if self.last_statusid == None :
                 # If there's no last status update the first one
                 status = recent_status[0]
                 self.bot.send_msg(self.status_str(self.__check_status(status)))
                 self.last_statusid = status.id
                 count += 1
-            elif (self.last_statusid in ids):
+            elif self.last_statusid in ids :
                 # If last status is present in the current top 20, update all since the last one
                 self.logger.debug("Got last_statusid in recent_status!")
                 for status in reversed(recent_status[:ids.index(self.last_statusid)]):
@@ -445,12 +446,12 @@ class TweetDrasta:
             if count > 0:
                 self.logger.info("Updated {0} statuses!".format(count))
             self.logger.debug("Updated {0} statuses!".format(count))
-        except tweepy.TweepError:
-            self.logger.exception("Error while updating recent tweets!")
+        except tweepy.TweepError as ex:
+            self.logger.exception(ex)
     
     def dig_update(self, dbstore, count, all):
         # Digs and updates all last N(count) tweets or all tweets from the user 
-        if(not dbstore.ready):
+        if not dbstore.ready :
             self.logger.error("Can't process this request without the database! Make sure the postgresql database is up and configured!")
             return
         self.logger.info("Digging! count: {0}, all: {1}".format(count, all))
@@ -460,7 +461,7 @@ class TweetDrasta:
         try:
             # Get N tweets or all tweets and store them in tmp database store
             for statuses in self.__rtlimt(tweepy.Cursor(self.api.user_timeline, id=self.username).iterator):
-                if (not all and f-i<=0 and r>0):
+                if not all and f-i<=0 and r>0 :
                     statuses = statuses[:r]
                 stx = [self.status_str(self.__check_status(status)) for status in statuses]
                 i += 1
@@ -492,8 +493,8 @@ class TweetDrasta:
                 c += len(stx)
                 print("Updated: {0}".format(c), end='\r')
             self.logger.info("Updated {0} tweets!".format(c))
-        except tweepy.TweepError:
-            self.logger.exception()
+        except tweepy.TweepError as ex:
+            self.logger.exception(ex)
         finally:
             dbstore.drop_tmp()
         return last
@@ -537,8 +538,6 @@ class Config:
 class App:
     def __init__(self, cfg):
         self.config = cfg
-        self.stop = False
-        self.running = False
         self.persist = {}
         self.logger = logging.getLogger(self.__class__.__name__)
         
@@ -549,7 +548,7 @@ class App:
         
         for key in ['twitter_username', 'twitter_apikey', 'twitter_api_secret', 'telegram_channel', 'telegram_bot_apikey']:
             if not (hasattr(cfg, key)):
-                self.__exit_hook(2, "Error: '{0}' not present in config!".format(key))
+                self.__exit_hook__(2, "Error: '{0}' not present in config!".format(key))
                 
         
         self.bot = TelegramBot(bot_api_key=cfg.telegram_bot_apikey, channel_name=cfg.telegram_channel,
@@ -569,50 +568,49 @@ class App:
             pass
         self.seek_rate = int(cfg.seek_rate)*60 if hasattr(cfg, 'seek_rate') else 60
         
-        def __exit_notify(signal, frame):
+        self.running = threading.Event()
+        self.thread = threading.Thread(target=self.__main__)
+
+        def __exit_notify__(signal, frame):
             self.logger.info("Received Terminate signal!")
-            if not self.running or self.stop:
-                self.__exit_hook(1)
-            self.stop = True
-        signal.signal(signal.SIGINT, __exit_notify)
-        signal.signal(signal.SIGTERM, __exit_notify)
+            self.running.set()
+            self.thread.join()
+            self.__exit_hook__(0)
+        
+        signal.signal(signal.SIGINT, __exit_notify__)
+        signal.signal(signal.SIGTERM, __exit_notify__)
     
-    def __start_hook(self):
+    def __start_hook__(self):
         self.bot.start()
         self.persist['channel_id'] = self.bot.channel_id
         self.dbstore.save_keystore(self.persist)
-    
-    def __stop_hook(self):
-        self.bot.stop()
-    
-    def __update_hook(self):
+        
+    def __update_hook__(self):
         self.drasta.update_status()
         self.persist['last_statusid'] = self.drasta.last_statusid
         self.dbstore.save_keystore(self.persist)
     
-    def __exit_hook(self, exitcode, reason="Stopped!"):
-        self.__stop_hook()
+    def __exit_hook__(self, exitcode, reason="Stopped!"):
+        self.bot.stop()
         self.logger.info(str(reason))
-        exit(exitcode)
+        #exit(exitcode)
+
+    def __main__(self):
+        self.__start_hook__()
+        while not self.running.wait(self.seek_rate):
+            self.__update_hook__()
     
     def dig(self, count=0, all=False):
-        self.__start_hook()
+        self.__start_hook__()
         self.bot.stop()
         res = self.drasta.dig_update(dbstore=self.dbstore, count=count, all=all)
         self.persist['last_statusid'] = self.drasta.last_statusid
         self.dbstore.save_keystore(self.persist)
         return res
+
+    def run(self):
+        self.thread.start()
     
-    def main(self):
-        self.__start_hook()
-        while not self.stop:
-            self.running = True
-            self.__update_hook()
-            self.running = False
-            if self.stop :
-                self.__exit_hook(0)
-            sleep(self.seek_rate)
-        self.__exit_hook(0)
 
 
 if __name__ == '__main__':
@@ -634,5 +632,5 @@ if __name__ == '__main__':
     elif args.dig_all :
         print("Last tweet id: {0}".format(app.dig(all=True)))
     else:
-        app.main()
+        app.run()
 
