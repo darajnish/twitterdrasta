@@ -11,8 +11,9 @@ This bot can be used to check for recent tweets by a public twitter handle and f
 * Forward all recent tweets from a public Twitter handle to a Telegram channel
 * Auto rollback to update tweets from the last tweet, if the bot was down for a few hours
 * Can dig and update last N no of tweets or even all possible tweets
-* Rate limit handled protection on twitter and Telegram APIs
+* Rate limit handled protection on Twitter and Telegram API
 * [Heroku](https://www.heroku.com/) dynos compatible
+* Support for custom tweet formatting over telegram
 
 ## Requirements
 
@@ -34,7 +35,7 @@ This bot can be used to check for recent tweets by a public twitter handle and f
 
 ## Running
 
-First, install the required dependencies if you haven't already installed. The last three dependencies can be installed using `pip` (using a terminal in this directory) as follows.
+First, install the required dependencies if you haven't already installed. The last three dependencies can be installed using **pip** (using a terminal in this directory) as follows.
 
 ```bash
 pip install -r requirements.txt
@@ -57,24 +58,42 @@ Now, create a json based config file for the program, with all required values f
     "max_rollback" : 200,
     "ratelimit_wait" : 16,
     "welcome_text" : "WRITE-A-WELCOME-MESSAGE-FOR-ANYONE-WHO-STARTS-THE-TELEGRAM-BOT",
-    "retweet_emoji" : "0x1F501",
-    "reply_emoji" : "0x21AA"
+    "tweet_format" : "{text}\n{url}\n{time}\n",
+    "reply_format" : "\u21aa <b>{mentions}</b>\n{text}\n{url}\n{time}\n",
+    "retweet_format" : "\ud83d\udd01  <b>{username}{mentions}</b>\n{text}\n{url}\n{time}\n"
 }
-
 ```
+
+
+**Config Values**
+
+
+| **Key**               | **Description**                                                                         |
+|:---------------------:|-----------------------------------------------------------------------------------------|
+| `twitter_username`    | Twitter username of the public handle without `@`                                       |
+| `twitter_apikey`      | Twitter developer API Key                                                               |
+| `twitter_api_secret`  | Twitter developer API Secret                                                            |
+| `telegram_channel`    | Telegram channel username                                                               |
+| `telegram_bot_apikey` | Telegram Bot API Key                                                                    |
+| `seek_rate`           | The time in minutes to wait before seeking newer tweets and upadating on telegram       |
+| `max_rollback`        | Maximum no of previous tweets to obtain if the last tweet is not a recent one           |
+| `ratelimit_wait`      | The time in minutes to wait before trying again when rate-limited by the Twitter server |
+| `welcome_text`        | Simple welcome / greeting text for the users who visit the Telegram Bot                 |
+| `tweet_format`        | Formatting for any normal tweet text which would be sent to the Telegram Channel        |
+| `reply_format`        | Formatting for the tweet text that is a reply to some other tweet                       |
+| `retweet_format`      | Formatting for the tweet text that is a retweet of some other tweet                     |
 
 
 
 Next, Make sure the PostgreSQL server is setup with a username and password and it's running (if you want to use the database).
 
-The bot can be configured to use the database server either by hardcoding the values, or through defining `DATABASE_URL` as environment variable which holds the URI for the postgresql databse.
+The bot can be configured to use the database server either by hardcoding the values, or through defining `DATABASE_URL` as environment variable which holds the URI for the postgresql database.
 
 The format for URI for `DATABASE_URL` should be like,
 
 ```html
 postgres://<user>:<password>@<hostname>:<port>/<database>
 ```
-
 
 
 
@@ -101,9 +120,9 @@ DATABASE_URL="postgres://<user>:<password>@<hostname>:<port>/<database>" python 
 
 
 
-#### Setting up on heroku
+#### Setting up on Heroku
 
-The bot is already compatible with heroku dynos, and this repository already contains files for heroku/python buildpack, `requirements.txt`, `runtime.txt` and `Procfile`.
+The bot is already compatible with heroku dynos, and this repository already contains files for **heroku/python** buildpack, `requirements.txt`, `runtime.txt` and `Procfile`.
 
 Just create a config file as told above and update the config filename in `Procfile` arguments (default filename: `config.json`) and push the contents to heroku git.
 

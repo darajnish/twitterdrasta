@@ -37,12 +37,37 @@ from argparse import ArgumentParser
 from telegram.ext import Updater, CommandHandler
 from telegram.error import BadRequest, TelegramError, RetryAfter
 
+DEFAULT_DBNAME = 'test'
+DEFAULT_HOST = 'localhost'
+DEFAULT_PORT = '5432'
+DEFAULT_USER = 'user'
+DEFAULT_PASSWORD = 'pass'
+DEFAULT_TWEET_FORMAT = "{text}\n{url}\n{time}\n"
+
+
+class ConnectionError(Exception):
+    '''
+        Raised when we face Connection related issues and want a quick exit
+    '''
+    def __init__(self, msg):
+        self.message = msg
+
+
+
+class ConfigError(Exception):
+    '''
+        Raised when we face config reading related issues and we want a quick exit
+    '''
+    def __init__(self, msg):
+        self.message = msg
+
+
 class DBStore:
     '''
     Handles all database related actions for this program.
     '''
     
-    def __init__(self, host='localhost', port='5432', user='user', password='pass', dbname='test'):
+    def __init__(self, host, port, user, password, dbname):
         '''
         Initialization parameters:
         host - the hostname or ip address of the server (Ex: localhost, 192.168.75.23)
@@ -239,7 +264,7 @@ class TelegramBot:
         except TelegramError:
             self.logger.exception("Error while setting up the telegram api!")
             self.logger.fatal("Unable to connect the telegram api!")
-            exit(2)
+            raise ConnectionError("Error while setting up the telegram api!")
     
     def start(self):
         '''
@@ -257,11 +282,11 @@ class TelegramBot:
                         self.channel_id = self.bot.get_chat("@{0}".format(self.channel)).id
                         break
                     except BadRequest as err:
-                        self.logger.warning("Failed to get fetch channel id! ({0}) : {1}".format(i, err))
-                        if (i == 10):
+                        self.logger.exception("Failed to get fetch channel id! ({0}) : {1}".format(i, err))
+                        if i == 10 :
                             self.stop()
                             self.logger.fatal("No channel id, can't continue!!")
-                            exit(2)
+                            raise ConnectionError("Failed to get fetch channel id! ({0}) : {1}".format(i, err))
                     sleep(10)
             self.logger.info("Bot '{0}' running & online for channel '{1}:{2}'".format(self.updater.bot.name, self.channel, self.channel_id))
     
@@ -297,10 +322,8 @@ class TweetDrasta:
     Handles all twitter related actions
     '''
     
-    RETWEET_EMOJI = chr(0x1F501) # Emoji Retweet: repeat 
-    REPLY_EMOJI = chr(0x21AA)    # Emoji Reply: left arrow curving right
-    
-    def __init__(self, api_key, api_secret, username, bot, max_rollback=50, ratelimit_wait=(15*60), last_statusid=None):
+    def __init__(self, api_key, api_secret, username, bot,
+                max_rollback=50, ratelimit_wait=(15*60), last_statusid=None, tweet_format=None, reply_format=None, retweet_format=None):
         '''
         Initialization parameters:
         api_key - the twitter developer api key
@@ -316,6 +339,9 @@ class TweetDrasta:
         self.max_rollback = max_rollback
         self.ratelimit_wait = ratelimit_wait
         self.last_statusid = last_statusid
+        self.tweetfmt = tweet_format if tweet_format else DEFAULT_TWEET_FORMAT
+        self.replyfmt = reply_format if reply_format else DEFAULT_TWEET_FORMAT
+        self.retweetfmt = retweet_format if retweet_format else DEFAULT_TWEET_FORMAT
         self.logger = logging.getLogger(self.__class__.__name__)
         
         self.logger.debug("Drasta args: {0}".format({
@@ -323,6 +349,9 @@ class TweetDrasta:
             'max_rollback': self.max_rollback,
             'ratelimit_wait': self.ratelimit_wait,
             'last_statusid' : self.last_statusid,
+            'tweet_format' : self.tweetfmt,
+            'reply_format' : self.replyfmt,
+            'retweet_format' : self.retweetfmt,
             'api_key': api_key,
             'api_secret': api_secret
             }))
@@ -335,7 +364,7 @@ class TweetDrasta:
         except tweepy.TweepError:
             self.logger.exception("Failed to connect twitter api!")
             self.logger.fatal("Unable to connect twitter api!")
-            exit(2)
+            raise ConnectionError("Unable to connect twitter api!")
         
     def __rtlimt(self, cursor):
         # Handles rate limit inside cursor
@@ -359,27 +388,35 @@ class TweetDrasta:
             i += 1
         return (j,k)
 
-    def status_str(self, status):
-        # Formats the statuses into a string representation
-        if(type(status) != tweepy.Status):
-            return ''
+    def status_str(self, status: tweepy.Status) -> str :
+        '''
+            Formats the statuses into a string representation
+        '''
+        tweet_syms = {}
+        status_str = ''
         is_retweet = hasattr(status, 'retweeted_status')
-        text = (status.retweeted_status.full_text if is_retweet else status.full_text) if hasattr(status, 'full_text') else status.text
+
+        tweet_syms['text'] = (status.retweeted_status.full_text if is_retweet else status.full_text) \
+            if hasattr(status, 'full_text') else status.text
+        tweet_syms['url'] = "https://twitter.com/{0}/status/{1}".format(status.user.screen_name, status.id)
+        tweet_syms['time'] = status.created_at.strftime("%A, %B %e %Y at %I:%M%p")
         mentions = status.entities['user_mentions']
-        str = ''
+
         if (is_retweet):
             mentions = status.retweeted_status.entities['user_mentions']
-            mn = " {0} {1}".format(u'\u2192',' '.join(["@{0}".format(u['screen_name']) for u in status
-                                                       .retweeted_status.entities['user_mentions']])) if len(mentions)!=0 else ""
-            str += "{0}  <b>@{1}{2}</b>\n{3}\n".format(self.RETWEET_EMOJI,status.retweeted_status.user.screen_name, mn,
-                                                        text[self.__rangem(mentions)[1]:].strip())
+            tweet_syms['mentions'] = " {0} {1}".format(u'\u2192',' '.join(["@{0}".format(u['screen_name']) for u in status
+                                                       .retweeted_status.entities['user_mentions']])) if len(mentions)>0 else ""
+            tweet_syms['username'] = '@' + status.retweeted_status.user.screen_name
+            tweet_syms['text'] = tweet_syms['text'][self.__rangem(mentions)[1]:].strip()
+            status_str = self.retweetfmt.format(**tweet_syms)
         elif (status.in_reply_to_screen_name and len(mentions)!=0):
-            mn = ' '.join(["@{0}".format(u['screen_name']) for u in mentions])
-            str += "{0}  <b>{1}</b>\n{2}\n".format(self.REPLY_EMOJI, mn, text[self.__rangem(mentions)[1]:].strip())
+            tweet_syms['mentions'] = ' '.join(["@{0}".format(u['screen_name']) for u in mentions])
+            tweet_syms['text'] = tweet_syms['text'][self.__rangem(mentions)[1]:].strip()
+            status_str = self.replyfmt.format(**tweet_syms)
         else:
-            str += "{0}\n".format(text)
-        str += "https://twitter.com/{0}/status/{1}\n{2}\n".format(status.user.screen_name, status.id, status.created_at.strftime("%A, %B %e %Y at %I:%M%p"))
-        return str
+            status_str = self.tweetfmt.format(**tweet_syms)
+        
+        return status_str
     
     def __get_statuses_since(self, since_id):
         sts = []
@@ -446,8 +483,8 @@ class TweetDrasta:
             if count > 0:
                 self.logger.info("Updated {0} statuses!".format(count))
             self.logger.debug("Updated {0} statuses!".format(count))
-        except tweepy.TweepError as ex:
-            self.logger.exception(ex)
+        except tweepy.TweepError:
+            self.logger.exception("Error while fetching statuses from Twitter!")
     
     def dig_update(self, dbstore, count, all):
         # Digs and updates all last N(count) tweets or all tweets from the user 
@@ -493,8 +530,8 @@ class TweetDrasta:
                 c += len(stx)
                 print("Updated: {0}".format(c), end='\r')
             self.logger.info("Updated {0} tweets!".format(c))
-        except tweepy.TweepError as ex:
-            self.logger.exception(ex)
+        except tweepy.TweepError:
+            self.logger.exception("Error while fetching statuses from Twitter!")
         finally:
             dbstore.drop_tmp()
         return last
@@ -524,16 +561,16 @@ class Config:
         try:
             with open(self.filename, 'r') as f:
                 config = json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError, PermissionError)  as err:
-            self.logger.exception("Failed to read config: {0}".format(err))
+        except (json.JSONDecodeError, FileNotFoundError, PermissionError) :
+            self.logger.exception("Failed to read config: {0}".format(self.filename))
             self.logger.fatal("Failed to read the config file!")
-            exit(2)
+            raise ConfigError("Failed to read config: {0}".format(self.filename))
         self.__json = config
         self.logger.debug("Config: {0}".format(self.__json))
         
         for k,v in config.items():
             setattr(self, k, v)
-
+    
 
 class App:
     def __init__(self, cfg):
@@ -541,9 +578,11 @@ class App:
         self.persist = {}
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        self.dbstore = DBStore(dbname=cfg.db_name, host=cfg.db_host, port=cfg.db_port,
-                               user=cfg.db_user, password=cfg.db_password) if (hasattr(cfg, 'db_name') and hasattr(
-                                   cfg, 'db_host') and hasattr(cfg, 'db_port') and hasattr(cfg, 'db_user') and hasattr(cfg, 'db_password')) else DBStore()
+        self.dbstore = DBStore(dbname=getattr(cfg, 'db_name', DEFAULT_DBNAME),
+                                host=getattr(cfg, 'db_host', DEFAULT_HOST), 
+                                port=getattr(cfg, 'db_port', DEFAULT_PORT),
+                                user=getattr(cfg, 'db_user', DEFAULT_USER), 
+                                password=getattr(cfg, 'db_password', DEFAULT_PASSWORD))
         self.dbstore.load_keystore(self.persist)
         
         for key in ['twitter_username', 'twitter_apikey', 'twitter_api_secret', 'telegram_channel', 'telegram_bot_apikey']:
@@ -553,20 +592,17 @@ class App:
         
         self.bot = TelegramBot(bot_api_key=cfg.telegram_bot_apikey, channel_name=cfg.telegram_channel,
                                channel_id=(int(self.persist['channel_id']) if 'channel_id' in self.persist else None), 
-                               welcome_text=(cfg.welcome_text if hasattr(cfg, 'welcome_text') else 'Hi! Join @{0}'.format(cfg.telegram_channel)))
+                               welcome_text=getattr(cfg, 'welcome_text', 'Hi! Join @{0}'.format(cfg.telegram_channel)))
         
         self.drasta = TweetDrasta(cfg.twitter_apikey, cfg.twitter_api_secret, cfg.twitter_username, self.bot,
-                             last_statusid=(int(self.persist['last_statusid']) if 'last_statusid' in self.persist else None), 
-                             max_rollback=(int(cfg.max_rollback) if hasattr(cfg, 'max_rollback') else 50), 
-                             ratelimit_wait=(int(cfg.ratelimit_wait)*60 if hasattr(cfg, 'ratelimit_wait') else 15*60))
-        try:
-            if hasattr(cfg, 'retweet_emoji'):
-                self.drasta.RETWEET_EMOJI = chr(int(cfg.retweet_emoji, 16) if str(cfg.retweet_emoji).lower().startswith('0x') else int(cfg.retweet_emoji))
-            if hasattr(cfg, 'reply_emoji'):
-                self.drasta.REPLY_EMOJI = chr(int(cfg.reply_emoji, 16) if str(cfg.reply_emoji).lower().startswith('0x') else int(cfg.reply_emoji))
-        except Exception:
-            pass
-        self.seek_rate = int(cfg.seek_rate)*60 if hasattr(cfg, 'seek_rate') else 60
+                                last_statusid=int(self.persist['last_statusid']) if 'last_statusid' in self.persist else None, 
+                                max_rollback=int(getattr(cfg, 'max_rollback', 50)),
+                                ratelimit_wait=int(getattr(cfg, 'ratelimit_wait', 15))*60,
+                                tweet_format=getattr(cfg, 'tweet_format'),
+                                reply_format=getattr(cfg, 'reply_format'),
+                                retweet_format=getattr(cfg, 'retweet_format'))
+        
+        self.seek_rate = int(getattr(cfg, 'seek_rate', 1))*60
         
         self.running = threading.Event()
         self.thread = threading.Thread(target=self.__main__)
@@ -624,8 +660,12 @@ if __name__ == '__main__':
     
     logging.basicConfig(format='%(asctime)s %(levelname)-8s %(name)-12s - %(message)s', level=(logging.DEBUG if args.debug else logging.INFO))
     
-    cfg = Config(args.config[0])
-    app = App(cfg)
+    try:
+        cfg = Config(args.config[0])
+        app = App(cfg)
+    except:
+        logging.getLogger('__main__').exception("Error running Twitter Drasta")
+        exit(2)
     
     if args.dig[0] > 0 :
         print("Last tweet id: {0}".format(app.dig(count=int(args.dig[0]))))
