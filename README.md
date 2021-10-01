@@ -68,20 +68,25 @@ Now, create a json based config file for the program, with all required values f
 **Config Values**
 
 
-| **Key**               | **Description**                                                                         |
-|:---------------------:|-----------------------------------------------------------------------------------------|
-| `twitter_username`    | Twitter username of the public handle without `@`                                       |
-| `twitter_apikey`      | Twitter developer API Key                                                               |
-| `twitter_api_secret`  | Twitter developer API Secret                                                            |
-| `telegram_channel`    | Telegram channel username                                                               |
-| `telegram_bot_apikey` | Telegram Bot API Key                                                                    |
-| `seek_rate`           | The time in minutes to wait before seeking newer tweets and upadating on telegram       |
-| `max_rollback`        | Maximum no of previous tweets to obtain if the last tweet is not a recent one           |
-| `ratelimit_wait`      | The time in minutes to wait before trying again when rate-limited by the Twitter server |
-| `welcome_text`        | Simple welcome / greeting text for the users who visit the Telegram Bot                 |
-| `tweet_format`        | Formatting for any normal tweet text which would be sent to the Telegram Channel        |
-| `reply_format`        | Formatting for the tweet text that is a reply to some other tweet                       |
-| `retweet_format`      | Formatting for the tweet text that is a retweet of some other tweet                     |
+| **Key**               | **Description**                                                                                       |
+|:---------------------:|-------------------------------------------------------------------------------------------------------|
+| `twitter_username`    | Twitter username of the public handle without `@` (Required)                                          |
+| `twitter_apikey`      | Twitter developer API Key (Required)                                                                  |
+| `twitter_api_secret`  | Twitter developer API Secret (Required)                                                               |
+| `telegram_channel`    | Telegram channel username (Required)                                                                  |
+| `telegram_bot_apikey` | Telegram Bot API Key (Required)                                                                       |
+| `seek_rate`           | The time in minutes to wait before seeking newer tweets and upadating on telegram (default: 1)        |
+| `max_rollback`        | Maximum no of previous tweets to obtain if the last tweet is not a recent one (default: 50)           |
+| `ratelimit_wait`      | The time in minutes to wait before trying again when rate-limited by the Twitter server (default: 15) |
+| `welcome_text`        | Simple welcome / greeting text for the users who visit the Telegram Bot                               |
+| `tweet_format`        | Formatting for any normal tweet text which would be sent to the Telegram Channel                      |
+| `reply_format`        | Formatting for the tweet text that is a reply to some other tweet                                     |
+| `retweet_format`      | Formatting for the tweet text that is a retweet of some other tweet                                   |
+| `db_name`             | Database name on the Postgres server (default: test or with DATABASE_URL environment var)             |
+| `db_host`             | Postgres server hostname / Ip address (default: localhost or with DATABASE_URL environment var)       |
+| `db_port`             | Postgres server port number (default: 5432 or with DATABASE_URL environment var)                      |
+| `db_user`             | Username for authentication on Postgres server (default: user or with DATABASE_URL environment var)   |
+| `db_password`         | Password for authentication on Postgres server (default: pass or with DATABASE_URL environment var)   |
 
 
 
