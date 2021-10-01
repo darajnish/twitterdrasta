@@ -8,6 +8,7 @@
     "max_rollback" : 200,
     "ratelimit_wait" : 16,
     "welcome_text" : "WRITE-A-WELCOME-MESSAGE-FOR-ANYONE-WHO-STARTS-THE-TELEGRAM-BOT",
-    "retweet_emoji" : "0x1F501",
-    "reply_emoji" : "0x21AA"
+    "tweet_format" : "{text}\n{url}\n{time}\n",
+    "reply_format" : "\u21aa <b>{mentions}</b>\n{text}\n{url}\n{time}\n",
+    "retweet_format" : "\ud83d\udd01  <b>{username}{mentions}</b>\n{text}\n{url}\n{time}\n"
 }
