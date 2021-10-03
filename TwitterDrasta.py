@@ -663,8 +663,8 @@ if __name__ == '__main__':
     try:
         cfg = Config(args.config[0])
         app = App(cfg)
-    except:
-        logging.getLogger('__main__').exception("Error running Twitter Drasta")
+    except Exception as err:
+        logging.getLogger('__main__').error(err)
         exit(2)
     
     if args.dig[0] > 0 :
