@@ -45,7 +45,7 @@ DEFAULT_PASSWORD = 'pass'
 DEFAULT_TWEET_FORMAT = "{text}\n{url}\n{time}\n"
 
 
-class ConnectionError(Exception):
+class BotConnectionError(Exception):
     '''
         Raised when we face Connection related issues and want a quick exit
     '''
@@ -264,7 +264,7 @@ class TelegramBot:
         except TelegramError:
             self.logger.exception("Error while setting up the telegram api!")
             self.logger.fatal("Unable to connect the telegram api!")
-            raise ConnectionError("Error while setting up the telegram api!")
+            raise BotConnectionError("Error while setting up the telegram api!")
     
     def start(self):
         '''
@@ -286,7 +286,7 @@ class TelegramBot:
                         if i == 10 :
                             self.stop()
                             self.logger.fatal("No channel id, can't continue!!")
-                            raise ConnectionError("Failed to get fetch channel id! ({0}) : {1}".format(i, err))
+                            raise BotConnectionError("Failed to get fetch channel id! ({0}) : {1}".format(i, err))
                     sleep(10)
             self.logger.info("Bot '{0}' running & online for channel '{1}:{2}'".format(self.updater.bot.name, self.channel, self.channel_id))
     
@@ -364,7 +364,7 @@ class TweetDrasta:
         except tweepy.TweepError:
             self.logger.exception("Failed to connect twitter api!")
             self.logger.fatal("Unable to connect twitter api!")
-            raise ConnectionError("Unable to connect twitter api!")
+            raise BotConnectionError("Unable to connect twitter api!")
         
     def __rtlimt(self, cursor):
         # Handles rate limit inside cursor
@@ -663,7 +663,7 @@ if __name__ == '__main__':
     try:
         cfg = Config(args.config[0])
         app = App(cfg)
-    except Exception as err:
+    except (BotConnectionError, ConfigError) as err:
         logging.getLogger('__main__').error(err)
         exit(2)
     
