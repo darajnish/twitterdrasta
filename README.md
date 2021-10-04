@@ -1,4 +1,5 @@
 # TwitterDrasta
+_Draṣṭā (द्रष्टा) meaning, the observer_
 
 Helps forwarding [Twitter](https://twitter.com/) messages from a public twitter handle to a [Telegram](https://telegram.org/) channel
 
